@@ -52,6 +52,39 @@ Using XMPP as an example again, the nickname in a MUC may be `foobar`, but the `
 Unlike `author`, however, this may be an empty string (`""`), as some protocols support anonymous users (e.g. IRC).
 The permissions system uses `msg.identity` under the hood *by design*, to prevent spoofing via nickname change.
 
-## Origin (*string*)
 ## Target (*string*)
+
+`target` and its sibling `origin` are two fields used to manage the routing of a message.
+`target` specifies where a message is intended, and is read by the internal message passing logic to determine where it should go.
+Both `target` and `origin` use a string format called "Resource Identifiers", or RI for short.
+Since they both use the same format, they can be interchanged easily to form a "reply".
+These RIs serve as a way to uniquely identify a particular pathway of communication.
+
+Resource Identifiers is a string containing substrings joined by a `"/"`.
+Each substring should contain some information for the routing of the message, most commonly the name of an object instance.
+When reading a resource identifier, the leftmost (first) string should be considered the top-level resource, or the first in the route.
+Likewise, the rightmost (last) string is considered the end of the route, either the originating source or end goal.
+When sending messages, Halibot only considers the leftmost string for sending a message, which it interprets as an object instance name.
+It is up to each receiving object in the route to continue the chain.
+
+To explain what RIs look like and how they are used, consider the following example.
+An IRC agent sends messages to a Quote module.
+The messages generated in the IRC agent would set `msg.target = "quote"`, and `msg.origin = "irc/##foobar"`.
+Halibot will then route the message to the Quote module, which will handle the message.
+
+Now, if the Quote module wants to respond back, all it needs to do is flip `.target` and `.origin`, and it is ready to go
+(Note, this is handled by the `.reply()` method on HalObjects).
+However, the keen eyed may have noticed that the RI from the IRC agent looks a bit different.
+In reality, the IRC agent didn't just decide to message the Quote module out of its own free will, a channel message from ##foobar initiated the action.
+And so, this RI can be read as `"irc"` contains a route to `"##foobar"`, because what Quote really wants to reply to is the channel.
+Thus, the reply is set to the IRC agent, who then ultimately routes the content to `##foobar`.
+
+## Origin (*string*)
+
+See `target` above. Similar concept, specifies the source of a message
+
 ## Misc (*dict*)
+
+The `misc` field is an option dictionary for any extra information that should be attached to a message, but isn't supported by any particular Halibot protocol.
+As this is a freeform field, it is 100% up to agents and modules to even consider anything in here, since there is no standard.
+Any usage of this field by an object should be loudly documented by the object.
