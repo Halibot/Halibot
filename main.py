@@ -286,13 +286,24 @@ def h_add(args):
 				print("Cannot determine if '{}' is a module or agent, use '-m' or '-a'.")
 				continue
 
-		(name, conf) = cls.configure({ 'of': clspath })
+		#(name, conf) = cls.configure({ 'of': clspath })
+		name = input("Enter instance name: ")
+		# TODO: Consider putting this logic into a lib function?
+		cfgr = cls.Configurer()
+		tmpcfg = {}
+		for key,opt in cfgr.options.items():
+			if opt.depends and not tmpcfg.get(opt.depends, False):
+				continue # Skip items that are dependent on a false-booleaned parameter
+
+			tmpcfg[key] = opt.ask(input)
+
+		tmpcfg["of"] = clspath
 
 		if name in bot.config["agent-instances"] or name in bot.config["module-instances"]:
 			print("Instance name '{}' is already in configuration, please choose a different instance name".format(name))
 			return
 
-		bot.config[destkey][name] = conf
+		bot.config[destkey][name] = tmpcfg
 
 	bot._write_config()
 
@@ -390,8 +401,17 @@ def h_config(args):
 				return
 
 
-			(name, conf) = cls.configure(pkgconf, name=args.name)
-			bot.config[destkey][name] = conf
+			# TODO: Seriously consider putting this logic into a lib function?
+			cfgr = cls.Configurer()
+			tmpcfg = pkgconf
+			for key, opt in cfgr.options.items():
+				if opt.depends and not tmpcfg.get(opt.depends, False):
+					continue # Skip items that are dependent on a false-booleaned parameter
+
+				tmpcfg[key] = opt.ask(input)
+
+			#(name, conf) = cls.configure(pkgconf, name=args.name)
+			bot.config[destkey][args.name] = tmpcfg
 
 		bot._write_config()
 

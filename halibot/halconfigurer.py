@@ -1,54 +1,52 @@
-get_input = input
+from collections import OrderedDict
+#get_input = input
 
 class Option():
-	def __init__(self, key, prompt=None, default=None):
+	def __init__(self, key, prompt=None, default=None, depends=None):
 		self.key = key
 		self.prompt = prompt if prompt != None else key
 		self.default = default
+		self.depends = depends
 
-	def ask(self):
+	def ask(self, get_input):
 		prompt = self.prompt
 		if self.default != None:
 			prompt += ' [' + str(self.default) + ']'
 		prompt += ': '
 
-		v = get_input(prompt)
-		if v == '': return self.default
-		return v
-
-	def configure(self):
 		while True:
+			v = get_input(prompt)
+			if v == '': return self.default
 			try:
-				v = self.ask()
+				return self.validate(v)
 			except ValueError:
 				continue
-			if self.valid():
-				break
-		return v
 
-	def valid(self):
-		return True
+		return "This shouldn't be run"
+
+	# To be implemented by subclassers
+	def validate(self, value):
+		return value
 
 # Builtin option classes
 class StringOption(Option):
 	pass
 
 class IntOption(Option):
-	def ask(self):
-		return int(super().ask())
+	def validate(self, value):
+		return int(value)
 
 class NumberOption(Option):
-	def ask(self):
-		return float(super().ask())
+	def validate(self, value):
+		return float(value)
 
 class BooleanOption(Option):
-	def ask(self):
-		v = super().ask()
-		if isinstance(v, str):
-			if v.lower() == 'true':  return True
-			if v.lower() == 'false': return False
+	def validate(self, value):
+		if isinstance(value, str):
+			if value.lower() == 'true':  return True
+			if value.lower() == 'false': return False
 			raise ValueError()
-		return v
+		return value
 
 Option.String = StringOption
 Option.Int = IntOption
@@ -58,18 +56,12 @@ Option.Boolean = BooleanOption
 class HalConfigurer():
 
 	def __init__(self, options={}):
-		self.options = options
+		self.options = OrderedDict(options)
+		self.configure() # fill out options dict
 
+	# Build a dictionary mapping config key to the validator
 	def option(self, option_type, key, **kwargs):
-		opt = option_type(key, **kwargs)
-
-		# Override the default if the option is already set
-		if key in self.options:
-			opt.default = self.options[key]
-
-		val = opt.configure()
-		if val != None:
-			self.options[key] = val
+		self.options[key] = option_type(key, **kwargs)
 
 	def optionString(self, key, **kwargs):
 		self.option(Option.String, key, **kwargs)
@@ -83,5 +75,38 @@ class HalConfigurer():
 	def optionBoolean(self, key, **kwargs):
 		self.option(Option.Boolean, key, **kwargs)
 
+	# Implemented by module, call to generate configurer
 	def configure(self):
 		pass # pragma: no cover
+
+	# Validate a complete config blob. Use for initial load from config file
+	#  config (dict): blob to check
+	#  fill_default (bool): will throw exception if there are missing keys, otherwise fills with defaults
+	# returns a config blob on success (with defaults if selected), throws exception on problem
+	def validate_config(self, config, fill_default=True):
+		ret = {}
+		missing = []
+		for key, validator in self.options.items():
+			tmp = config.get(key)
+
+			# Ensure the key exists, and if we aren't taking defaults, ensure we report
+			if not tmp and not fill_default:
+				missing.append(key)
+				continue
+			elif not tmp:
+				ret[key] = validator.default
+				continue
+
+			# Propogate ValueError if there is one
+			ret[key] = validator.validate(tmp)
+
+		if missing and not fill_default:
+			str = "Missing key" + ("s" if len(missing) > 1 else "") + ": " + ", ".join(missing)
+			raise KeyError(str)
+
+	# Validate an individual key/value pair. Probably used for runtime changes/configurerers.
+	def validate_key(self, key, value):
+		validator = self.options.get(key)
+		if not validator:
+			return KeyError("No such config option")
+		return validator.validate(value)
