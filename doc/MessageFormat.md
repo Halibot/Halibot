@@ -11,7 +11,7 @@ Messages are received as an object that works like a javascript-like dictionary,
 The following are top-level attributes:
 
  - `body`: The data being sent. In most cases, this is the text of the message.
- - `type`: Type of message, determines what may be in `body`.
+ - `type`: Type of message, determines what may be in `body`. See `MessageFormat.md` for more info.
  - `author`: A short name for who sent the message.
  - `identity`: A string that uniquely identifies a user.
  - `origin`: Where this message originated from.
@@ -27,11 +27,9 @@ This will always be a `str` object, and can be empty (`""`).
 ## Type (*string*)
 
 The type of message should be set to reflect the kind of message being passed along.
-The valid types of messages are:
+The valid types of messages are defined more in depth in `MessageFormat.md`.
 
-| Type String | Description                         | What is in `body` |
-| ----------- | ----------------------------------- | ----------------- |
-| `simple`    | Plain text message sent from a user | Plain text        |
+Most messages are use the type `simple`, which are for general chatter (e.g. plaintext messages sent to/from a channel or user).
 
 ## Author (*string*)
 
